@@ -121,7 +121,7 @@ print("Reading in R1 fastq file.")
 r1_fastq <- fread(r1_fp, header=F, stringsAsFactors=FALSE, sep='\t')
 print("Filtering R1 fastq file.")
 r1_fastq <- r1_fastq[[1]][good_lines]
-r1_newnames <- paste(">", sampids_good, "_R1-", (1:length(sampids_good)), sep="")
+r1_newnames <- paste("@", sampids_good, "_R1-", (1:length(sampids_good)), sep="")
 r1_fastq[(1:length(r1_fastq) + 3) %% 4 == 0] <- r1_newnames
 print("Writing out R1 fastq file.")
 fwrite(list(r1_fastq), file=r1_outname, quote=F)
@@ -132,7 +132,7 @@ print("Reading in R2 fastq file.")
 r2_fastq <- fread(r2_fp, header=F, stringsAsFactors=FALSE, sep='\t')
 print("Filtering r2 fastq file.")
 r2_fastq <- r2_fastq[[1]][good_lines]
-r2_newnames <- paste(">", sampids_good, "_r2-", (1:length(sampids_good)), sep="")
+r2_newnames <- paste("@", sampids_good, "_r2-", (1:length(sampids_good)), sep="")
 r2_fastq[(1:length(r2_fastq) + 3) %% 4 == 0] <- r2_newnames
 print("Writing out r2 fastq file.")
 fwrite(list(r2_fastq), file=r2_outname, quote=F)
