@@ -11,6 +11,8 @@ Script to demultiplex illumina raw fastq files WITHOUT filtering
  you can't use vsearch anymore if you want to join them together. You COULD use the fastx 
  toolkit to do this, but it's SLOW and hard to understand. This is FAST. WAY FAST.
  
+ Required R packages: Rscript, data.table
+ 
  -Jack 
 
- usage: split_libraries_dumb.r --r1 r1.fastq --r2 r2.fastq -i index.fastq -m mappintgile.txt
+ usage: split_libraries_dumb.r --r1 r1.fastq --r2 r2.fastq -i index.fastq -m mappintgfile.txt
