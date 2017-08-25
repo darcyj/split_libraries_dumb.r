@@ -3,8 +3,7 @@ Script to demultiplex illumina raw fastq files WITHOUT filtering
 
  by Jack Darcy
  24 AUG 2017
- Script to demultiplex illumina raw fastq files WITHOUT filtering
-
+ 
  I wrote this program because I want to demultiplex, THEN join my paired-end fastq files. 
  That's impossible just using qiime - you have to join first, since split_libraries_fastq.py
  filters R1 and R2 indipendently. Then, you get two fastqs of different lengths, and now
