@@ -7,6 +7,8 @@
 # usage: split_libraries_dumb.r --r1 r1.fastq --r2 r2.fastq -i index.fastq -m mappintgile.txt
 
 suppressPackageStartupMessages(require(optparse))
+suppressPackageStartupMessages(require(data.table))
+suppressPackageStartupMessages(require(parallel))
 
 option_list <- list(
 	make_option(c("a", "--r1"), action="store", default=NA, type='character',
