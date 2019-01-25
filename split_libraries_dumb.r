@@ -1,7 +1,7 @@
 #!/usr/bin/Rscript
 
 # Jack Darcy
-# 19 JAN 2014
+# 25 JAN 2019
 # script to filter QIIME format OTU maps
 
 # usage: split_libraries_dumb.r --r1 r1.fastq --r2 r2.fastq -i index.fastq -m mappintgile.txt
@@ -20,7 +20,7 @@ option_list <- list(
 	make_option("--skip", action="store", default="none", type='character',
 			help="Used to skip 'first' or 'last' character of index read."),
 	make_option("--rc_barcodes", action="store_true", default=FALSE, type='logical',
-		help="Reverse-compliments your barcodes before anything else."),
+		help="Reverse-complements your barcodes before anything else."),
 	make_option("--add_Cas1.8_data", action="store_true", default=FALSE, type='logical',
 		help="Adds Casava 1.8 tags to sequence names (1:N:0:ATGATATGATGA)"),
 	make_option("--prefix", action="store", default="filtered", type='character',
@@ -39,25 +39,25 @@ outprefix <- opt$prefix
 rc_barcodes <- opt$rc_barcodes
 cas18names <- opt$add_Cas1.8_data
 
-# functions to reverse compliment a string
-# functions to reverse-compliment a sequence
-complimnet <- function(x){
-	if(x == "C"){out <- "G"}
-	if(x == "G"){out <- "C"}
-	if(x == "A"){out <- "T"}
-	if(x == "T"){out <- "A"}
-	if(!x %in% c("A", "T", "G", "C")){out <- x}
-	return(out)
-}
+# functions to reverse complement a string
+
+## reverse-complement function
+# x is a string of IUPAC nucleotide characters, all upper case
 rc <- function(x){
-	if(length(x) > 0){
-		for(i in 1:length(x)){
-			tmp_i <- rev(unlist(strsplit(x[i], split="")))
-			x[i] <- paste(sapply(tmp_i, FUN=complimnet), collapse="")
-		}
-	}
-	return(x)
+	# map for complementary nucleotides
+	comp_map <- setNames(
+		c("A", "T", "G", "C", "N", "R", "Y", "S", "W", "K", "M", "B", "V", "D", "H", "-"), 
+		c("T", "A", "C", "G", "N", "Y", "R", "S", "W", "M", "K", "V" ,"B" ,"H", "D", "-"))
+	# turn string x into character vector
+	x <- unlist(strsplit(x, split=""))
+	# reverse-complement x
+	x_rc <- rev(comp_map[unlist(x)])
+	# turn "NA"s into Ns
+	x_rc[is.na(x_rc)] <- "N"
+	# return x_rc as string
+	return(paste(x_rc, collapse=""))
 }
+
 
 
 # test that all input files have the right number of lines BEFORE
@@ -162,5 +162,3 @@ r2_fastq[(1:length(r2_fastq) + 3) %% 4 == 0] <- r2_newnames
 print("Writing out r2 fastq file.")
 fwrite(list(r2_fastq), file=r2_outname, quote=F)
 rm(r2_fastq)
-
-
