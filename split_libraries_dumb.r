@@ -75,10 +75,11 @@ fread_fq_gz <- function(fp){
 # read in index reads and mapping file
 print("Reading index file.")
 index <- fread_fq_gz(in_fp)
+nlines_index <- length(index)
 
 # get only barcode lines from index
 print("Simplifying index")
-index <- index[(1:length(index)) %% 4 == 2 ]
+index <- index[(1:nlines_index) %% 4 == 2 ]
 
 if(skip == "last"){
 	startbp <- 1; stopbp  <- nchar(index[1]) - 1
@@ -138,6 +139,7 @@ r2_outname <- paste(outprefix, "_r2.fastq", sep="")
 # filter r1
 print("Reading in R1 fastq file.")
 r1_fastq <- fread_fq_gz(r1_fp)
+if(length(r1_fastq) != nlines_index){ stop("ERROR: r1 and index files have different numbers of lines.") }
 print("Filtering R1 fastq file.")
 r1_fastq <- r1_fastq[good_lines]
 r1_newnames <- paste("@", sampids_good, "_R1-", (1:length(sampids_good)), sep="")
@@ -150,6 +152,7 @@ rm(r1_fastq)
 # filter r2
 print("Reading in R2 fastq file.")
 r2_fastq <- fread_fq_gz(r2_fp)
+if(length(r2_fastq) != nlines_index){ stop("ERROR: r2 and index files have different numbers of lines.") }
 print("Filtering r2 fastq file.")
 r2_fastq <- r2_fastq[good_lines]
 r2_newnames <- paste("@", sampids_good, "_R2-", (1:length(sampids_good)), sep="")
