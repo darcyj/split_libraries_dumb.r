@@ -60,38 +60,32 @@ rc <- function(x){
 	return(paste(x_rc, collapse=""))
 }
 
-
-
-# test that all input files have the right number of lines BEFORE
-# reading them into memory
-print("Verifyinng file lengths.")
-linecount <- function(fp){
-	command <- paste("wc -l", fp, "| cut -f 1 -d ' '")
-	return(as.numeric(system(command, intern=TRUE)))
-}
-counts <- c(linecount(r1_fp), linecount(r2_fp), linecount(in_fp))
-if( ! all(counts == counts[1])){stop("CRITICAL ERROR: Input fastq files are of unequal length.")}
-if( ! all(counts %% 4 == 0)){stop("CRITICAL ERROR: Invalid fastq files (length not multiple of 4)")}	
-
-
 library(data.table)
 library(parallel)
 
+fread_fq_gz <- function(fp){
+	if(endsWith(fp, "gz")){
+	        in_cmd <- paste("gunzip -c", fp)
+	        return(fread(cmd=in_cmd, header=FALSE)[[1]])
+	}else{
+		return(fread(fp, header=FALSE)[[1]])
+	}
+}
+
 # read in index reads and mapping file
 print("Reading index file.")
-index <- fread(in_fp, header=F, stringsAsFactors=FALSE, sep='\t')
+index <- fread_fq_gz(in_fp)
 
 # get only barcode lines from index
-print("Simplifying index file")
-index <- index[(1:nrow(index) + 2) %% 4 == 0]
+print("Simplifying index")
+index <- index[(1:length(index)) %% 4 == 2 ]
+
 if(skip == "last"){
-	startbp <- 1
-	stopbp  <- nchar(index[[1]][1]) - 1
-	index[[1]] <- substr(index[[1]], start=startbp, stop=stopbp)
+	startbp <- 1; stopbp  <- nchar(index[1]) - 1
+	index <- substr(index, start=startbp, stop=stopbp)
 }else if (skip == "first"){
-	startbp <- 2
-	stopbp <- nchar(index[[1]][1])
-	index[[1]] <- substr(index[[1]], start=startbp, stop=stopbp)
+	startbp <- 2; stopbp <- nchar(index[1])
+	index <- substr(index, start=startbp, stop=stopbp)
 }
 
 # read in mapping file
@@ -107,7 +101,7 @@ if(rc_barcodes){
 
 # compare index reads to barcodes
 print("Comparing index reads to barcodes.")
-good_seqs <- index[[1]] %in% map$BarcodeSequence
+good_seqs <- index %in% map$BarcodeSequence
 
 # function to translate barcode into sampleid
 # good_index_df is just data.frame(good_seqs, index)[i]
@@ -126,8 +120,8 @@ sampids <- indices <- character(length(good_seqs))
 for(i in 1:nrow(map)){
 	bc_i <- map$BarcodeSequence[i]
 	samp_i <- map[[1]] [i]
-	sampids[which(index[[1]] == bc_i)] <- samp_i
-	indices[which(index[[1]] == bc_i)] <- bc_i
+	sampids[which(index == bc_i)] <- samp_i
+	indices[which(index == bc_i)] <- bc_i
 }
 rm(index)
 sampids_good <- sampids[good_seqs]
@@ -143,9 +137,9 @@ r2_outname <- paste(outprefix, "_r2.fastq", sep="")
 
 # filter r1
 print("Reading in R1 fastq file.")
-r1_fastq <- fread(r1_fp, header=F, stringsAsFactors=FALSE, sep='\t')
+r1_fastq <- fread_fq_gz(r1_fp)
 print("Filtering R1 fastq file.")
-r1_fastq <- r1_fastq[[1]][good_lines]
+r1_fastq <- r1_fastq[good_lines]
 r1_newnames <- paste("@", sampids_good, "_R1-", (1:length(sampids_good)), sep="")
 if(cas18names){r1_newnames <- paste(r1_newnames, " 1:N:2:", indices_good, sep="")}
 r1_fastq[(1:length(r1_fastq) + 3) %% 4 == 0] <- r1_newnames
@@ -155,9 +149,9 @@ rm(r1_fastq)
 
 # filter r2
 print("Reading in R2 fastq file.")
-r2_fastq <- fread(r2_fp, header=F, stringsAsFactors=FALSE, sep='\t')
+r2_fastq <- fread_fq_gz(r2_fp)
 print("Filtering r2 fastq file.")
-r2_fastq <- r2_fastq[[1]][good_lines]
+r2_fastq <- r2_fastq[good_lines]
 r2_newnames <- paste("@", sampids_good, "_R2-", (1:length(sampids_good)), sep="")
 if(cas18names){r2_newnames <- paste(r2_newnames, " 2:N:2:", indices_good, sep="")}
 r2_fastq[(1:length(r2_fastq) + 3) %% 4 == 0] <- r2_newnames
