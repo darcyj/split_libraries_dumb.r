@@ -66,9 +66,9 @@ library(parallel)
 fread_fq_gz <- function(fp){
 	if(endsWith(fp, "gz")){
 	        in_cmd <- paste("gunzip -c", fp)
-	        return(fread(cmd=in_cmd, header=FALSE)[[1]])
+	        return(fread(cmd=in_cmd, header=FALSE, sep=NULL)[[1]])
 	}else{
-		return(fread(fp, header=FALSE)[[1]])
+		return(fread(fp, header=FALSE, sep=NULL)[[1]])
 	}
 }
 
