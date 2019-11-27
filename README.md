@@ -25,7 +25,7 @@ I wrote this program because I want to demultiplex, THEN join my paired-end fast
  This definitely won't read gzipped files on windows. Should work every time on OS X and Linux,
  as long as you have gunzip installed. Actually, do they even have rscript for Windows???
 
-## usage: 
+## Usage: 
 Easy mode:
 ```split_libraries_dumb.r --r1 r1.fastq.gz --r2 r2.fastq.gz -i index.fastq.gz -m mappintgfile.txt```
 
