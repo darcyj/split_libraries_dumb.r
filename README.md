@@ -39,8 +39,8 @@ options (run with ```--help``` to see these):
 * ```--skip```: Used to skip "first" or "last" character of index reads. Default is "none".
 * ```--rc_barcodes```: Flag. If used, reverse-complements your barcodes before anything else.
 * ```--add_Cas1.8_data```: Flag. If used, adds Cas1.8 data to output files. 
-* ```--split```: Flag. If used, separate output files will be written per sample per read. Files will be named sample_Rx.fastq.gz.
-* ```--prefix```: Prefix for output fastq files. Will be appended to \_Rx.fastq. Overridden by --split. Files will be named prefix_Rx.fastq.gz. Default is "demuxed".
+* ```--split```: Flag. If used, separate output files will be written per sample per read. Files will be named (sampleid)\_R(1234).fastq.gz.
+* ```--prefix```: Prefix for output fastq files. Overridden by --split. Files will be named (prefix)\_R(1234).fastq.gz. Default is "demuxed".
 * ```--bc_col```: Column number of metadata file containing barcodes. If 0 (default), finds "BarcodeSequence" in column labels.
 * ```--samp_col```: Col number of metadata file containing sample IDs. Default=1.
 * ```-h / --help```: Show the above, but explained more tersely.
