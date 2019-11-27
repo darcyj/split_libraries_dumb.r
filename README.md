@@ -23,7 +23,7 @@ I wrote this program because I want to demultiplex, THEN join my paired-end fast
  
 ## Note for Windows users:
  This definitely won't read gzipped files on windows. Should work every time on OS X and Linux,
- as long as you have gunzip installed.
+ as long as you have gunzip installed. Actually, do they even have rscript for Windows???
 
 ## usage: 
 Easy mode:
