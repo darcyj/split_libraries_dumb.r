@@ -4,7 +4,7 @@ Script to demultiplex illumina raw fastq files WITHOUT filtering
  by John L. Darcy
  26 NOV 2019
  
- I wrote this program because I want to demultiplex, THEN join my paired-end fastq files. 
+I wrote this program because I want to demultiplex, THEN join my paired-end fastq files. 
  That's impossible just using qiime 1 - you have to join first, since split_libraries_fastq.py
  filters R1 and R2 indipendently. Then, you get two fastqs of different lengths, and now
  you can't use vsearch anymore if you want to join them together. You COULD use the fastx 
@@ -19,11 +19,15 @@ Script to demultiplex illumina raw fastq files WITHOUT filtering
  
  Required R packages: Rscript, data.table
  
- -JLD 
+ -JLD
+ 
+## Note for Windows users:
+ This definitely won't read gzipped files on windows. Should work every time on OS X and Linux,
+ as long as you have gunzip installed.
 
 ## usage: 
 Easy mode:
-```split_libraries_dumb.r --r1 r1.fastq --r2 r2.fastq -i index.fastq -m mappintgfile.txt```
+```split_libraries_dumb.r --r1 r1.fastq.gz --r2 r2.fastq.gz -i index.fastq.gz -m mappintgfile.txt```
 
 options (run with ```--help``` to see these):
 * ```--r1```: R1 reads filepath in fastq format. If gzipped, must end with .gz. Optional.
