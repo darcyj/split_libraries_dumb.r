@@ -1,49 +1,48 @@
 #!/usr/bin/Rscript
 
-# Jack Darcy
-# 25 JAN 2019
-# script to filter QIIME format OTU maps
+# John L. Darcy
+# 26 NOV 2019
+# script to split barcoded illumina libraries by sample
 
-# usage: split_libraries_dumb.r --r1 r1.fastq --r2 r2.fastq -i index.fastq -m mappintgile.txt
+# simple usage: split_libraries_dumb.r --r1 r1.fastq --r2 r2.fastq -i index.fastq -m mappingfile.txt
 
 suppressPackageStartupMessages(require(optparse))
 suppressPackageStartupMessages(require(data.table))
-suppressPackageStartupMessages(require(parallel))
 
 option_list <- list(
-	make_option(c("a", "--r1"), action="store", default=NA, type='character',
-			help="R1 reads in fastq format"),
-	make_option(c("b", "--r2"), action="store", default=NA, type='character',
-			help="R2 reads in fastq format"),
-	make_option(c("-i", "--index"), action="store", default=NA, type='character',
-			help="Index reads in fastq format"),
-	make_option(c("-m", "--map"), action="store", default=NA, type='character',
-			help="QIIME format mapping file"),
-	make_option("--skip", action="store", default="none", type='character',
-			help="Used to skip 'first' or 'last' character of index read."),
-	make_option("--rc_barcodes", action="store_true", default=FALSE, type='logical',
+	make_option("--r1", action="store", default=NA, type="character",
+		help="R1 reads in fastq format (optional)"),
+	make_option("--r2", action="store", default=NA, type="character",
+		help="R2 reads in fastq format (optional)"),
+	make_option("--r3", action="store", default=NA, type="character",
+		help="R3 reads in fastq format (optional)"),
+	make_option("--r4", action="store", default=NA, type="character",
+		help="R4 reads in fastq format (optional)"),
+	make_option(c("-i", "--index"), action="store", default=NA, type="character",
+		help="Index reads in fastq format"),
+	make_option(c("-m", "--map"), action="store", default=NA, type="character",
+		help="metadata map file (must include sampleids and barcodes"),
+	make_option("--skip", action="store", default="none", type="character",
+		help="Used to skip 'first' or 'last' character of index reads."),
+	make_option("--rc_barcodes", action="store_true", default=FALSE, type="logical",
 		help="Reverse-complements your barcodes before anything else."),
-	make_option("--add_Cas1.8_data", action="store_true", default=FALSE, type='logical',
+	make_option("--add_Cas1.8_data", action="store_true", default=FALSE, type="logical",
 		help="Adds Casava 1.8 tags to sequence names (1:N:0:ATGATATGATGA)"),
-	make_option("--prefix", action="store", default="filtered", type='character',
-		help="Prefix for output fastq files. Will be appended to _r[12].fastq")
-# help option -h/--help is included by optparse by default
+	make_option("--split", action="store_true", default=FALSE, type="logical",
+		help="Splits outputs by sample ID, creating separate files with sample ID prefixes."),
+	make_option("--prefix", action="store", default="demuxed", type="character",
+		help="Prefix for output fastq files. Will be appended to _r[12].fastq. Overridden by --split."),
+	make_option("--samp_col", action="store", default=1, type="integer",
+		help="Col # of map containing sample IDs. Default=1."),
+	make_option("--bc_col", action="store", default=0, type="integer",
+		help="Col # of map containing barcodes. If 0, finds \"BarcodeSequence\" in column labels. Default=0.")
+	# help option -h/--help is included by optparse by default
 )
 opt = parse_args(OptionParser(option_list=option_list))
 
 
-skip <- opt$skip
-r1_fp <- opt$r1
-r2_fp <- opt$r2
-in_fp <- opt$index
-mf_fp <- opt$map
-outprefix <- opt$prefix
-rc_barcodes <- opt$rc_barcodes
-cas18names <- opt$add_Cas1.8_data
-
-# functions to reverse complement a string
-
 ## reverse-complement function
+# simple function avoids dependency balogna
 # x is a string of IUPAC nucleotide characters, all upper case
 rc <- function(x){
 	# map for complementary nucleotides
@@ -61,7 +60,6 @@ rc <- function(x){
 }
 
 library(data.table)
-library(parallel)
 
 fread_fq_gz <- function(fp){
 	if(endsWith(fp, "gz")){
@@ -73,91 +71,135 @@ fread_fq_gz <- function(fp){
 }
 
 # read in index reads and mapping file
-print("Reading index file.")
-index <- fread_fq_gz(in_fp)
+message("Reading index file.")
+index <- fread_fq_gz(opt$index)
 nlines_index <- length(index)
 
-# get only barcode lines from index
-print("Simplifying index")
+# simplify index to include only nucleotide lines
+message("Simplifying index.")
 index <- index[(1:nlines_index) %% 4 == 2 ]
 
-if(skip == "last"){
+# prune extra NTs from index reads if requested
+if(opt$skip == "last"){
 	startbp <- 1; stopbp  <- nchar(index[1]) - 1
 	index <- substr(index, start=startbp, stop=stopbp)
-}else if (skip == "first"){
+}else if (opt$skip == "first"){
 	startbp <- 2; stopbp <- nchar(index[1])
 	index <- substr(index, start=startbp, stop=stopbp)
 }
 
-# read in mapping file
-print("Reading mapping file.")
-map <- fread(mf_fp, header=T, stringsAsFactors=FALSE, sep='\t')
+# read in and simplify mapping file
+message("Reading mapping file.")
+map <- fread(opt$map, header=T, stringsAsFactors=FALSE, sep='\t')
+if(opt$bc_col == 0 && "BarcodeSequence" %in% colnames(map)){
+	bcs <- map$BarcodeSequence
+}else if(opt$bc_col == 0){
+	stop("Error: bc_col set to 0 but \"BarcodeSequence\" not in column names of map.")
+}else{
+	bcs <- map[,opt$bc_col]
+}
+map <- data.frame(
+	sampleid=as.character(map[[opt$samp_col]]), #using [[col]] because it's a data.table
+	barcode=bcs, stringsAsFactors=FALSE
+)
 
-if(rc_barcodes){
-	print("Reverse-complementing barcodes within mapping file.")
-	for(i in 1:nrow(map)){
-		map$BarcodeSequence[i] <- rc(map$BarcodeSequence[i])	
-	}
+# reverse-compliment barcodes if requested
+if(opt$rc_barcodes){
+	message("Reverse-complementing barcodes within mapping file.")
+	map$barcode <- sapply(X=map$barcode, FUN=rc)
 }
 
-# compare index reads to barcodes
-print("Comparing index reads to barcodes.")
-good_seqs <- index %in% map$BarcodeSequence
-
-# function to translate barcode into sampleid
-# good_index_df is just data.frame(good_seqs, index)[i]
-# trans_df is just data.frame(map[[1]], map$BarcodeSequence)[i]
-bc2sampid <- function(good_index, trans_df){
-	if(good_index[1] == TRUE){
-		samp <- trans_df[[2]] [ trans_df[[1]] == good_index[2] ]	
-	}else{
-		samp <- "NA"
-	}
-	return(samp)
-}
-
-# for each read, figure out its sampleID and its index sequence
-sampids <- indices <- character(length(good_seqs))
+# Figure out which reads belong to each barcode in map
+message("Comparing index reads to barcodes.")
+sampids <- character(length(index))
 for(i in 1:nrow(map)){
-	bc_i <- map$BarcodeSequence[i]
-	samp_i <- map[[1]] [i]
-	sampids[which(index == bc_i)] <- samp_i
-	indices[which(index == bc_i)] <- bc_i
+	sampids[which(index == map$barcode[i])] <- map$sampleid[i]
 }
-rm(index)
-sampids_good <- sampids[good_seqs]
-indices_good <- indices[good_seqs]
-good_lines <- rep(good_seqs, each=4)
 
 # status message
-print(paste("Found", sum(good_seqs), "hits out of", length(good_seqs), "total."))
+message(paste("Found", sum(sampids != ""), "hits out of", length(sampids), "total."))
 
-# get ready for filtering
-r1_outname <- paste(outprefix, "_r1.fastq", sep="")
-r2_outname <- paste(outprefix, "_r2.fastq", sep="")
 
-# filter r1
-print("Reading in R1 fastq file.")
-r1_fastq <- fread_fq_gz(r1_fp)
-if(length(r1_fastq) != nlines_index){ stop("ERROR: r1 and index files have different numbers of lines.") }
-print("Filtering R1 fastq file.")
-r1_fastq <- r1_fastq[good_lines]
-r1_newnames <- paste("@", sampids_good, "_R1-", (1:length(sampids_good)), sep="")
-if(cas18names){r1_newnames <- paste(r1_newnames, " 1:N:2:", indices_good, sep="")}
-r1_fastq[(1:length(r1_fastq) + 3) %% 4 == 0] <- r1_newnames
-print("Writing out R1 fastq file.")
-fwrite(list(r1_fastq), file=r1_outname, quote=F)
-rm(r1_fastq)
+# function to read in fastq, add sampleids, make names, and return a table of fq entries (rows)
+	# each entry has 4 cols: 1=sample, 2=name, 3=seq, 4=plus, 5=qual
+	# fqfp : fastq file path
+	# samps : vector of sample ids, with "" meaning unassigned.
+	# r : read number (1 or 2.... or 3?)
+	# addcas : add casava data? T/F
+	# ind : index reads (only needed if addcas=TRUE)
+process_reads <- function(fqfp, samps, r, ind=NULL, addcas=F){
+	# read in data
+	fastq <- fread_fq_gz(fqfp)
+	# check that length matches
+	if(length(fastq) != length(samps) * 4){ stop("ERROR: r1 and index files have different numbers of lines.") }
+	# fix names
+	newnames <- paste0("@", samps, "_R", r, "-", (1:length(samps)))
+	if(addcas){newnames <- paste0(newnames, " 1:N:2:", index)}
+	# turn into table and return
+	output <- cbind(
+		samp=samps,
+		name=newnames,
+		seq=fastq[(1:length(fastq) + 2) %% 4 == 0],
+		plus=rep("+", length(samps)),
+		qual=fastq[(1:length(fastq) + 0) %% 4 == 0] 
+	)
+	# remove unassigned seqs
+	output <- output[samps != "", ]
+	return(output)
+}
 
-# filter r2
-print("Reading in R2 fastq file.")
-r2_fastq <- fread_fq_gz(r2_fp)
-if(length(r2_fastq) != nlines_index){ stop("ERROR: r2 and index files have different numbers of lines.") }
-print("Filtering r2 fastq file.")
-r2_fastq <- r2_fastq[good_lines]
-r2_newnames <- paste("@", sampids_good, "_R2-", (1:length(sampids_good)), sep="")
-if(cas18names){r2_newnames <- paste(r2_newnames, " 2:N:2:", indices_good, sep="")}
-r2_fastq[(1:length(r2_fastq) + 3) %% 4 == 0] <- r2_newnames
-print("Writing out r2 fastq file.")
-fwrite(list(r2_fastq), file=r2_outname, quote=F)
-rm(r2_fastq)
+# writes reads processed with process_reads
+	# readstable : output of process_reads
+	# r : read number (1 or 2.... or 3?)
+	# split : if true, write 1 file per sample
+	# prefix : prefix for output file (if split is F)
+write_reads <- function(readstable, r, split, prefix){
+	# function that turns a readstable (from process_reads) into a character array of fq lines, in order.
+	rtab2char <- function(rtab){ as.vector(t(rtab[,2:5])) } # this is hacky but it works.
+	if(split == TRUE){
+		samps <- unique(readstable[,1])
+		for(s in samps){
+			out_fp_s <- paste0(s, "_r", r, ".fastq.gz")
+			rtab_s <- readstable[readstable[,1] == s, ,drop=F]
+			fwrite(list(rtab2char(rtab_s)), file=out_fp_s, quote=F, compress="gzip")
+			rm(out_fp_s, rtab_s)
+		}
+	}else{
+		out_fp <- paste0(prefix, "_r", r, ".fastq.gz")
+		fwrite(list(rtab2char(readstable)), file=out_fp, quote=F, compress="gzip")
+	}
+}
+
+# process R1
+if(! is.na(opt$r1)){
+	message(paste0("Processing R1 (", opt$r1, ")"))
+	rt <- process_reads(fqfp=opt$r1, sampids, r=1, ind=index, addcas=opt$add_Cas1.8_data)
+	write_reads(rt, r=1, split=opt$split, prefix=opt$prefix)
+	rm(rt)
+}
+
+# process R2
+if(! is.na(opt$r2)){
+	message(paste0("Processing R2 (", opt$r2, ")"))
+	rt <- process_reads(fqfp=opt$r2, sampids, r=2, ind=index, addcas=opt$add_Cas1.8_data)
+	write_reads(rt, r=2, split=opt$split, prefix=opt$prefix)
+	rm(rt)
+}
+
+# process R3
+if(! is.na(opt$r3)){
+	message(paste0("Processing R3 (", opt$r3, ")"))
+	rt <- process_reads(fqfp=opt$r3, sampids, r=3, ind=index, addcas=opt$add_Cas1.8_data)
+	write_reads(rt, r=3, split=opt$split, prefix=opt$prefix)
+	rm(rt)
+}
+
+# process R4
+if(! is.na(opt$r4)){
+	message(paste0("Processing R4 (", opt$r4, ")"))
+	rt <- process_reads(fqfp=opt$r4, sampids, r=4, ind=index, addcas=opt$add_Cas1.8_data)
+	write_reads(rt, r=4, split=opt$split, prefix=opt$prefix)
+	rm(rt)
+}
+
+message("All done.")
