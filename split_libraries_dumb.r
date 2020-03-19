@@ -6,8 +6,20 @@
 
 # simple usage: split_libraries_dumb.r --r1 r1.fastq --r2 r2.fastq -i index.fastq -m mappingfile.txt
 
-suppressPackageStartupMessages(require(optparse))
-suppressPackageStartupMessages(require(data.table))
+# thwow errors if packages are missing:
+packages = c("optparse", "R.utils", "data.table")
+for(p in packages){
+	p_ok <- suppressWarnings(suppressPackageStartupMessages(require(p, character.only=T)))
+	if(!p_ok){
+		stop(paste0("Package \"", p, "\" is required but isn't installed."))
+	}
+}
+
+# check if installed version of data.table is new enough for gzip support:
+dt_vers <- as.character(packageVersion("data.table"))
+if(compareVersion("1.12.6", dt_vers) == 1){
+	stop("You are using an old version of data.table. Please update it to 1.12.6 or higher.")
+}
 
 option_list <- list(
 	make_option("--r1", action="store", default=NA, type="character",
@@ -62,12 +74,13 @@ rc <- function(x){
 library(data.table)
 
 fread_fq_gz <- function(fp){
-	if(endsWith(fp, "gz")){
-	        in_cmd <- paste("gunzip -c", fp)
-	        return(fread(cmd=in_cmd, header=FALSE, sep=NULL)[[1]])
-	}else{
+	# commented out stuff is for OLD data.table::fread which couldn't automatically detect gzipped files.
+	#if(endsWith(fp, "gz")){
+	#        in_cmd <- paste("gunzip -c", fp)
+	#        return(fread(cmd=in_cmd, header=FALSE, sep=NULL)[[1]])
+	#}else{
 		return(fread(fp, header=FALSE, sep=NULL)[[1]])
-	}
+	#}
 }
 
 # read in index reads and mapping file
@@ -90,7 +103,7 @@ if(opt$skip == "last"){
 
 # read in and simplify mapping file
 message("Reading mapping file.")
-map <- fread(opt$map, header=T, stringsAsFactors=FALSE, sep='\t')
+map <- read.delim(opt$map, header=T, stringsAsFactors=FALSE, sep='\t', comment.char="")
 if(opt$bc_col == 0 && "BarcodeSequence" %in% colnames(map)){
 	bcs <- map$BarcodeSequence
 }else if(opt$bc_col == 0){

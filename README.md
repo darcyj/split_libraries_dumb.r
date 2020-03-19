@@ -17,25 +17,21 @@ I wrote this program because I want to demultiplex, THEN join my paired-end fast
  with illumina, the index read is the most high-quality part of a read, so if it's bad then your
  R1 and certainly R2 reads will be garbage for sure. 
  
- Required R packages: Rscript, data.table
+ Required R packages: Rscript, data.table > 1.12.6, R.utils
  
  -JLD
  
-## Note for Windows users:
- This definitely won't read gzipped files on windows. Should work every time on OS X and Linux,
- as long as you have gunzip installed. Actually, do they even have rscript for Windows???
-
 ## Usage: 
 Easy mode:
 ```split_libraries_dumb.r --r1 r1.fastq.gz --r2 r2.fastq.gz -i index.fastq.gz -m mappintgfile.txt```
 
 options (run with ```--help``` to see these):
-* ```--r1```: R1 reads filepath in fastq format. If gzipped, must end with .gz. Optional.
+* ```--r1```: R1 reads filepath, fastq format. May be gzipped or bzip2d. Optional.
 * ```--r2```: see above. 
 * ```--r3```: see above. 
 * ```--r4```: see above. 
-* ```-i / --index```: Index reads filepath in fastq format. If gzipped, must end in .gz. Required.
-* ```-m / --map```: Metadata filepath in tab separated format. Required.
+* ```-i / --index```: Index reads filepath, fastq format. If gzipped, must end in .gz. Required.
+* ```-m / --map```: Metadata filepath, TSV format, no comment lines. Required.
 * ```--skip```: Used to skip "first" or "last" character of index reads. Default is "none".
 * ```--rc_barcodes```: Flag. If used, reverse-complements your barcodes before anything else.
 * ```--add_Cas1.8_data```: Flag. If used, adds Cas1.8 data to output files. 
