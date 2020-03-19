@@ -17,7 +17,7 @@ I wrote this program because I want to demultiplex, THEN join my paired-end fast
  with illumina, the index read is the most high-quality part of a read, so if it's bad then your
  R1 and certainly R2 reads will be garbage for sure. 
  
- Required R packages: Rscript, data.table > 1.12.6, R.utils
+ Required R packages: Rscript, data.table >= 1.12.6, R.utils
  
  -JLD
  
