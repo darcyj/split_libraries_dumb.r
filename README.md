@@ -1,26 +1,17 @@
 # split_libraries_dumb.r
 Script to demultiplex illumina raw fastq files WITHOUT filtering
 
- by John L. Darcy
+by John L. Darcy
  
- Last edited 18 Mar 2020
+Last edited 03 Nov 2020
  
-I wrote this program because I want to demultiplex, THEN join my paired-end fastq files. 
- That's impossible just using qiime 1 - you have to join first, since split_libraries_fastq.py
- filters R1 and R2 indipendently. Then, you get two fastqs of different lengths, and now
- you can't use vsearch anymore if you want to join them together. You COULD use the fastx 
- toolkit to do this, but it's SLOW and hard to understand. Qiime 2 has a solution for this
- problem, but if you're like me you don't like how Qiime 2 keeps all files as a baby-friendly
- "qiime zipped archive" object. 
+I wrote this program because I want to demultiplex, THEN join my paired-end fastq files. That's impossible just using qiime 1 - you have to join first, since split_libraries_fastq.py filters R1 and R2 indipendently. Then, you get two fastqs of different lengths, and now you can't use vsearch anymore if you want to join them together. You COULD use the fastx toolkit to do this, but it's SLOW and hard to understand. Qiime 2 has a solution for this problem, but if you're like me you don't like how Qiime 2 keeps all files as a baby-friendly "qiime zipped archive" object. 
  
- This is a no-nonsense demultiplexer that works only with EXACT BARCODE-INDEX matches, meaning
- there's no wiggle room if your index read is off by a NT. You don't want that anyway because 
- with illumina, the index read is the most high-quality part of a read, so if it's bad then your
- R1 and certainly R2 reads will be garbage for sure. 
+This is a no-nonsense demultiplexer that works only with EXACT BARCODE-INDEX matches (although as of 03 Nov 2020 it can do inexact matches!), meaning there's no wiggle room if your index read is off by a NT. You don't want that anyway because with illumina, the index read is the most high-quality part of a read, so if it's bad then your R1 and certainly R2 reads will be garbage for sure. 
  
- Required R packages: Rscript, data.table >= 1.12.6, R.utils
+Required R packages: Rscript, R.utils, data.table >= 1.12.6
  
- -JLD
+-JLD
  
 ## Usage: 
 Easy mode:
@@ -33,6 +24,7 @@ options (run with ```--help``` to see these):
 * ```--r4```: see above. 
 * ```-i / --index```: Index reads filepath, fastq format. If gzipped, must end in .gz. Required.
 * ```-m / --map```: Metadata filepath, TSV format, no comment lines. Required.
+* ```--allowed_mismatch```: Integer. EXPERIMENTAL - only available in "dev" script. Number of allowed character mismatches between read and barcode. Default is 0.
 * ```--skip```: Used to skip "first" or "last" character of index reads. Default is "none".
 * ```--rc_barcodes```: Flag. If used, reverse-complements your barcodes before anything else.
 * ```--add_Cas1.8_data```: Flag. If used, adds Cas1.8 data to output files. 
