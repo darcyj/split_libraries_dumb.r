@@ -34,8 +34,6 @@ option_list <- list(
 		help="Index reads in fastq format"),
 	make_option(c("-m", "--map"), action="store", default=NA, type="character",
 		help="metadata map file (must include sampleids and barcodes"),
-	make_option("--allowed_mismatch", action="store", default=0, type="integer",
-		help="Num allowed char mismatches between read and barcode. Default=0."),
 	make_option("--skip", action="store", default="none", type="character",
 		help="Used to skip 'first' or 'last' character of index reads."),
 	make_option("--rc_barcodes", action="store_true", default=FALSE, type="logical",
@@ -124,45 +122,15 @@ if(opt$rc_barcodes){
 	map$barcode <- sapply(X=map$barcode, FUN=rc)
 }
 
-
 # Figure out which reads belong to each barcode in map
 message("Comparing index reads to barcodes.")
-message(paste0("(Run with ",opt$allowed_mismatch, " allowed mismatches)"))
-if(opt$allowed_mismatch <= 0){
-	sampids <- character(length(index))
-	for(i in 1:nrow(map)){
-		sampids[which(index == map$barcode[i])] <- map$sampleid[i]
-		message(paste0(i, " / ", nrow(map)))
-	}
-}else{
-	# alternate comparison with wiggle room
-	# function that compares string of the same length
-	strdiff <- function(s1, s2){
-		if(nchar(s1) != nchar(s2)){
-			return(nchar(s1))
-		}else{
-			return( sum(strsplit(s1, split="")[[1]] != strsplit(s2, split="")[[1]]) )
-		}
-	}
-	sampids <- character(length(index)) # stores sample destinations for each read
-	hitsums <- integer(length(index))   # stores how many samples each read "hits"
-	for(i in 1:nrow(map)){
-		diffs_i <- sapply(X=index, FUN=strdiff, s2=map$barcode[i] )
-		sampids[diffs_i <= opt$allowed_mismatch] <- map$sampleid[i]
-		hitsums[diffs_i <= opt$allowed_mismatch] <- hitsums[diffs_i <= opt$allowed_mismatch] + 1
-		rm(diffs_i)
-		message(paste0(i, " / ", nrow(map)))
-	}
-	# get rid of seqs that hit multiple barcodes
-	n_mult_hit <- sum(hitsums > 1)
-	sampids[hitsums > 1] <- ""
-	message(paste0(n_mult_hit, " seqs matched multiple barcodes"))
-	message("(Those hits were dicarded)")
-	rm(hitsums)
+sampids <- character(length(index))
+for(i in 1:nrow(map)){
+	sampids[which(index == map$barcode[i])] <- map$sampleid[i]
 }
 
 # status message
-message(paste("Found", sum(sampids != ""), "good hits out of", length(sampids), "total."))
+message(paste("Found", sum(sampids != ""), "hits out of", length(sampids), "total."))
 
 
 # function to read in fastq, add sampleids, make names, and return a table of fq entries (rows)

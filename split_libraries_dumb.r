@@ -9,7 +9,7 @@
 # thwow errors if packages are missing:
 packages = c("optparse", "R.utils", "data.table")
 for(p in packages){
-	p_ok <- suppressWarnings(suppressPackageStartupMessages(require(p, character.only=T)))
+	p_ok <- suppressWarnings(suppressPackageStartupmsgs(require(p, character.only=T)))
 	if(!p_ok){
 		stop(paste0("Package \"", p, "\" is required but isn't installed."))
 	}
@@ -34,8 +34,10 @@ option_list <- list(
 		help="Index reads in fastq format"),
 	make_option(c("-m", "--map"), action="store", default=NA, type="character",
 		help="metadata map file (must include sampleids and barcodes"),
+	make_option("--allowed_mismatch", action="store", default=0, type="integer",
+		help="Num allowed char mismatches between read and barcode. Default=0."),
 	make_option("--skip", action="store", default="none", type="character",
-		help="Used to skip 'first' or 'last' character of index reads."),
+		help="Used to skip 'first' or 'last' character of index reads. Default=none."),
 	make_option("--rc_barcodes", action="store_true", default=FALSE, type="logical",
 		help="Reverse-complements your barcodes before anything else."),
 	make_option("--add_Cas1.8_data", action="store_true", default=FALSE, type="logical",
@@ -43,14 +45,40 @@ option_list <- list(
 	make_option("--split", action="store_true", default=FALSE, type="logical",
 		help="Splits outputs by sample ID, creating separate files with sample ID prefixes."),
 	make_option("--prefix", action="store", default="demuxed", type="character",
-		help="Prefix for output fastq files. Will be appended to _r[12].fastq. Overridden by --split."),
+		help="Prefix for output fastq files. Will be appended to _r[12].fastq. Not used with --split. Default=demuxed."),
 	make_option("--samp_col", action="store", default=1, type="integer",
 		help="Col # of map containing sample IDs. Default=1."),
 	make_option("--bc_col", action="store", default=0, type="integer",
-		help="Col # of map containing barcodes. If 0, finds \"BarcodeSequence\" in column labels. Default=0.")
+		help="Col # of map containing barcodes. If 0, finds \"BarcodeSequence\" in column labels. Default=0."),
+	make_option(c("-q", "--quiet"), action="store_true", default=FALSE, type="logical",
+		help="Quiets output."),
+	make_option(c("-s", "--summary"), action="store", default="none", type="character",
+		help="Summary counts table filepath, not written if 'none'. Default=none.")
 	# help option -h/--help is included by optparse by default
 )
 opt = parse_args(OptionParser(option_list=option_list))
+
+# some stuff for debugging; make your own opt!
+if(FALSE){
+	opt <- list()
+	opt$r1 = "../../rawfastq/miseq2014/Undetermined_S0_L001_R1_001.fastq.gz"\
+	opt$r2 = "../../rawfastq/miseq2014/Undetermined_S0_L001_R2_001.fastq.gz"
+	opt$r3 = NA
+	opt$r4 = NA
+	opt$index = "../../rawfastq/miseq2014/Undetermined_S0_L001_I1_001.fastq.gz"
+	opt$map = "mapping_2014_small.txt"
+	opt$allowed_mismatch = 0
+	opt$skip = "last"
+	opt$rc_barcodes <- TRUE
+	opt$add_Cas1.8_data <- TRUE
+	opt$split <- TRUE
+	opt$prefix <- "demuxed"
+	opt$samp_col <- 1
+	opt$bc_col <- 0
+	opt$quiet <- FALSE
+	opt$summary <- "counts.txt"
+
+}
 
 
 ## reverse-complement function
@@ -71,25 +99,22 @@ rc <- function(x){
 	return(paste(x_rc, collapse=""))
 }
 
+# message function wrapper for compatibility with quiet mode
+msg <- function(x){ if( ! opt$quiet ){ message(x) } }
+
 library(data.table)
 
 fread_fq_gz <- function(fp){
-	# commented out stuff is for OLD data.table::fread which couldn't automatically detect gzipped files.
-	#if(endsWith(fp, "gz")){
-	#        in_cmd <- paste("gunzip -c", fp)
-	#        return(fread(cmd=in_cmd, header=FALSE, sep=NULL)[[1]])
-	#}else{
-		return(fread(fp, header=FALSE, sep=NULL)[[1]])
-	#}
+	return(fread(fp, header=FALSE, sep=NULL)[[1]])
 }
 
 # read in index reads and mapping file
-message("Reading index file.")
+msg("Reading index file.")
 index <- fread_fq_gz(opt$index)
 nlines_index <- length(index)
 
 # simplify index to include only nucleotide lines
-message("Simplifying index.")
+msg("Simplifying index.")
 index <- index[(1:nlines_index) %% 4 == 2 ]
 
 # prune extra NTs from index reads if requested
@@ -102,7 +127,7 @@ if(opt$skip == "last"){
 }
 
 # read in and simplify mapping file
-message("Reading mapping file.")
+msg("Reading mapping file.")
 map <- read.delim(opt$map, header=T, stringsAsFactors=FALSE, sep='\t', comment.char="")
 if(opt$bc_col == 0 && "BarcodeSequence" %in% colnames(map)){
 	bcs <- map$BarcodeSequence
@@ -118,20 +143,66 @@ map <- data.frame(
 
 # reverse-compliment barcodes if requested
 if(opt$rc_barcodes){
-	message("Reverse-complementing barcodes within mapping file.")
+	msg("Reverse-complementing barcodes within mapping file.")
 	map$barcode <- sapply(X=map$barcode, FUN=rc)
 }
 
 # Figure out which reads belong to each barcode in map
-message("Comparing index reads to barcodes.")
-sampids <- character(length(index))
-for(i in 1:nrow(map)){
-	sampids[which(index == map$barcode[i])] <- map$sampleid[i]
+msg("Comparing index reads to barcodes.")
+msg(paste0("(Run with ",opt$allowed_mismatch, " allowed mismatches)"))
+if(opt$allowed_mismatch <= 0){
+	sampids <- character(length(index))
+	for(i in 1:nrow(map)){
+		sampids[which(index == map$barcode[i])] <- map$sampleid[i]
+		# only output if i is divisible by 3, or if it's nrow(map)
+		if(3 %% i == 0 | i == nrow(map)){
+			msg(paste0("  ", i, " / ", nrow(map), " samples done"))
+		}
+	}
+}else{
+	# alternate comparison with wiggle room
+	# function that compares string of the same length
+	strdiff <- function(s1, s2){
+		if(nchar(s1) != nchar(s2)){
+			return(nchar(s1))
+		}else{
+			return( sum(strsplit(s1, split="")[[1]] != strsplit(s2, split="")[[1]]) )
+		}
+	}
+	sampids <- character(length(index)) # stores sample destinations for each read
+	hitsums <- integer(length(index))   # stores how many samples each read "hits"
+	for(i in 1:nrow(map)){
+		diffs_i <- sapply(X=index, FUN=strdiff, s2=map$barcode[i] )
+		sampids[diffs_i <= opt$allowed_mismatch] <- map$sampleid[i]
+		hitsums[diffs_i <= opt$allowed_mismatch] <- hitsums[diffs_i <= opt$allowed_mismatch] + 1
+		rm(diffs_i)
+		if(3 %% i == 0 | i == nrow(map)){
+			msg(paste0("  ", i, " / ", nrow(map), " samples done"))
+		}
+	}
+	# get rid of seqs that hit multiple barcodes
+	n_mult_hit <- sum(hitsums > 1)
+	sampids[hitsums > 1] <- ""
+	msg(paste0(n_mult_hit, " seqs matched multiple barcodes"))
+	msg("(Those hits were dicarded)")
+	rm(hitsums)
 }
 
-# status message
-message(paste("Found", sum(sampids != ""), "hits out of", length(sampids), "total."))
-
+# status msg
+msg(paste("Found", sum(sampids != ""), "good hits out of", length(sampids), "total."))
+# write summary file
+if(opt$summary != "none"){
+	msg("Tabulating summary counts table.")
+	sum_out <- table(factor(sampids, levels=map$sampleid))
+	# remove empty category (seqs that weren't in any given sample)
+	sum_out <- sum_out[names(sum_out) != ""]
+	sum_out <- data.frame(
+		Sample = names(sum_out),
+		n_seqs = as.numeric(sum_out)
+	)
+	msg("Writing counts table to file.")
+	write.table(sum_out, file=opt$summary, quote=FALSE, sep="\t", row.names=FALSE)
+}
 
 # function to read in fastq, add sampleids, make names, and return a table of fq entries (rows)
 	# each entry has 4 cols: 1=sample, 2=name, 3=seq, 4=plus, 5=qual
@@ -185,7 +256,7 @@ write_reads <- function(readstable, r, split, prefix){
 
 # process R1
 if(! is.na(opt$r1)){
-	message(paste0("Processing R1 (", opt$r1, ")"))
+	msg(paste0("Processing R1 (", opt$r1, ")"))
 	rt <- process_reads(fqfp=opt$r1, sampids, r=1, ind=index, addcas=opt$add_Cas1.8_data)
 	write_reads(rt, r=1, split=opt$split, prefix=opt$prefix)
 	rm(rt)
@@ -193,7 +264,7 @@ if(! is.na(opt$r1)){
 
 # process R2
 if(! is.na(opt$r2)){
-	message(paste0("Processing R2 (", opt$r2, ")"))
+	msg(paste0("Processing R2 (", opt$r2, ")"))
 	rt <- process_reads(fqfp=opt$r2, sampids, r=2, ind=index, addcas=opt$add_Cas1.8_data)
 	write_reads(rt, r=2, split=opt$split, prefix=opt$prefix)
 	rm(rt)
@@ -201,7 +272,7 @@ if(! is.na(opt$r2)){
 
 # process R3
 if(! is.na(opt$r3)){
-	message(paste0("Processing R3 (", opt$r3, ")"))
+	msg(paste0("Processing R3 (", opt$r3, ")"))
 	rt <- process_reads(fqfp=opt$r3, sampids, r=3, ind=index, addcas=opt$add_Cas1.8_data)
 	write_reads(rt, r=3, split=opt$split, prefix=opt$prefix)
 	rm(rt)
@@ -209,10 +280,10 @@ if(! is.na(opt$r3)){
 
 # process R4
 if(! is.na(opt$r4)){
-	message(paste0("Processing R4 (", opt$r4, ")"))
+	msg(paste0("Processing R4 (", opt$r4, ")"))
 	rt <- process_reads(fqfp=opt$r4, sampids, r=4, ind=index, addcas=opt$add_Cas1.8_data)
 	write_reads(rt, r=4, split=opt$split, prefix=opt$prefix)
 	rm(rt)
 }
 
-message("All done.")
+msg("All done.")
