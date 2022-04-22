@@ -61,7 +61,7 @@ opt = parse_args(OptionParser(option_list=option_list))
 # some stuff for debugging; make your own opt!
 if(FALSE){
 	opt <- list()
-	opt$r1 = "../../rawfastq/miseq2014/Undetermined_S0_L001_R1_001.fastq.gz"\
+	opt$r1 = "../../rawfastq/miseq2014/Undetermined_S0_L001_R1_001.fastq.gz"
 	opt$r2 = "../../rawfastq/miseq2014/Undetermined_S0_L001_R2_001.fastq.gz"
 	opt$r3 = NA
 	opt$r4 = NA
