@@ -66,7 +66,7 @@ if(FALSE){
 	opt$r3 = NA
 	opt$r4 = NA
 	opt$index = "../../rawfastq/miseq2014/Undetermined_S0_L001_I1_001.fastq.gz"
-	opt$map = "mapping_2014_small.txt"
+	opt$map = "../../metadata/mapping_2014.txt"
 	opt$allowed_mismatch = 0
 	opt$skip = "last"
 	opt$rc_barcodes <- TRUE
@@ -155,7 +155,7 @@ if(opt$allowed_mismatch <= 0){
 	for(i in 1:nrow(map)){
 		sampids[which(index == map$barcode[i])] <- map$sampleid[i]
 		# only output if i is divisible by 3, or if it's nrow(map)
-		if(3 %% i == 0 | i == nrow(map)){
+		if(i %% 3 == 0 | i == nrow(map)){
 			msg(paste0("  ", i, " / ", nrow(map), " samples done"))
 		}
 	}
@@ -176,7 +176,7 @@ if(opt$allowed_mismatch <= 0){
 		sampids[diffs_i <= opt$allowed_mismatch] <- map$sampleid[i]
 		hitsums[diffs_i <= opt$allowed_mismatch] <- hitsums[diffs_i <= opt$allowed_mismatch] + 1
 		rm(diffs_i)
-		if(3 %% i == 0 | i == nrow(map)){
+		if(i %% 3 == 0 | i == nrow(map)){
 			msg(paste0("  ", i, " / ", nrow(map), " samples done"))
 		}
 	}
@@ -200,7 +200,7 @@ if(opt$summary != "none"){
 		Sample = names(sum_out),
 		n_seqs = as.numeric(sum_out)
 	)
-	msg("Writing counts table to file.")
+	msg(paste0("Writing counts table to file (", opt$summary, ")"))
 	write.table(sum_out, file=opt$summary, quote=FALSE, sep="\t", row.names=FALSE)
 }
 
