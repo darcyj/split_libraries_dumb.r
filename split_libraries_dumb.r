@@ -9,7 +9,7 @@
 # thwow errors if packages are missing:
 packages = c("optparse", "R.utils", "data.table")
 for(p in packages){
-	p_ok <- suppressWarnings(suppressPackageStartupmsgs(require(p, character.only=T)))
+	p_ok <- suppressWarnings(suppressPackageStartupMessages(require(p, character.only=T)))
 	if(!p_ok){
 		stop(paste0("Package \"", p, "\" is required but isn't installed."))
 	}
